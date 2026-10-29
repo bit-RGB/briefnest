@@ -1,23 +1,16 @@
 """Small synchronous application boundary; connections never escape a call."""
 import logging
-import os
 from contextlib import closing
-from urllib.parse import quote, quote_plus
 
 from . import collector, db, repository, sources, translation
+from .credentials import configured_credentials as _configured_credentials
 
 logger = logging.getLogger(__name__)
 
 
 def configured_credentials():
     """Return raw and URL-encoded configured source credentials for redaction."""
-    values = set()
-    for source in sources.load_sources():
-        env_name = source.get("api_key_env")
-        value = os.environ.get(env_name, "").strip() if env_name else ""
-        if value:
-            values.update((value, quote(value, safe=""), quote_plus(value, safe="")))
-    return values
+    return _configured_credentials(sources.load_sources())
 
 
 def list_events(*, profile, domain, read, q, limit, cursor):

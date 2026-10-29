@@ -16,7 +16,7 @@ def contract(check):
 def test_registration(source):
     for token in ("const ID = 'intelligence-feed'", "id: ID", "defaultEnabled: false",
                   "area: ROUTES_AREA", "area: SIDEBAR_NAV_AREA",
-                  "path: '/intelligence-feed'", "name: '讯集'", "label: '讯集'", "codicon: 'rss'"):
+                  "path: '/intelligence-feed'", "name: 'BriefNest'", "label: 'BriefNest'", "codicon: 'rss'"):
         assert token in source
 
 
@@ -63,20 +63,13 @@ def test_settings_dialog_can_persistently_hide_keyword_tags(source):
     for component in ('Switch', 'Dialog', 'DialogContent', 'DialogDescription',
                       'DialogFooter', 'DialogHeader', 'DialogTitle'):
         assert component in source
-    assert 'Checkbox' not in source
-    assert "const [settingsOpen, setSettingsOpen] = useState(false)" in source
     assert "ctx.storage.get('settings.showTags', true)" in source
     assert "ctx.storage.set('settings.showTags', next)" in source
-    assert "aria-label': '讯集设置'" in source
-    assert "children: '讯集设置'" in source
-    assert "children: '显示关键词标签'" in source
     assert "showTags && jsx('span'" in source
-    assert "jsx(Switch, { 'aria-label': '显示关键词标签', checked: showTags" in source
-    assert "style: { color: muted, whiteSpace: 'nowrap', marginLeft: 'auto' }" in source
-    assert "jsx(FeedResults, { ctx, profile, domain, readFilter, searchText, showTags, updateMutation, previewZoom, onPreviewZoomChange: changePreviewZoom }" in source
-    assert "ctx.storage.get('settings.previewZoom', DEFAULT_PREVIEW_ZOOM)" in source
-    assert "ctx.storage.set('settings.previewZoom', next)" in source
-    assert "jsx(PreviewZoomControls, { zoom: previewZoom, onZoomChange: changePreviewZoom })" in source
+    assert "ctx.storage.get('settings.locale', 'en')" in source
+    assert "ctx.storage.set('settings.locale', next)" in source
+    assert 'function normalizeLocale(value)' in source
+    assert "jsx(FeedResults, { ctx, profile, domain, readFilter, searchText, showTags, updateMutation, locale }" in source
 
 
 @contract
@@ -90,15 +83,38 @@ def test_settings_dialog_lists_and_toggles_sources_by_domain(source):
     assert "queryKey: [ID, 'sources']" in source
     assert "ctx.rest('/sources')" in source
     assert "ctx.rest(`/sources/${id}`, { method: 'PATCH', body: { value } })" in source
-    assert "children: '信息源'" in source
+    assert 'children: t(locale, "信息源")' in source
+    assert "style: settingsTitleStyle, children: t(locale, label)" in source
+    assert "style: settingsOptionStyle, children: source.name" in source
     assert "sourceSettings.data?.filter(source => source.domain === value)" in source
-    assert "jsx(Switch, { 'aria-label': `${source.enabled ? '停用' : '启用'}${source.name}`" in source
+    assert '${source.enabled ? t(locale, "停用") : t(locale, "启用")} ${source.name}' in source
     assert "checked: source.enabled" in source
     assert "sourceMutation.mutate({ id: source.id, value })" in source
     assert "queryClient.invalidateQueries({ queryKey: [ID, 'sources'] })" in source
     assert "queryClient.invalidateQueries({ queryKey: [ID, 'counts', profile] })" in source
     assert "queryClient.invalidateQueries({ queryKey: [ID, 'events', profile] })" in source
     assert "关闭后停止采集并从普通列表隐藏，历史收藏仍会保留。" in source
+
+
+@contract
+def test_settings_typography_is_consistent(source):
+    assert "const settingsTitleStyle = { fontSize: 14, fontWeight: 700, color: 'var(--ui-text-primary)' }" in source
+    assert "const settingsOptionStyle = { fontSize: 12, fontWeight: 400 }" in source
+    for title in ('关键词标签', '界面语言', '信息源'):
+        assert f'style: settingsTitleStyle, children: t(locale, "{title}")' in source
+    assert "jsx(DialogTitle, { style: settingsTitleStyle" in source
+    assert "jsxs(DialogContent, { style: settingsOptionStyle" in source
+    assert "jsx(DialogDescription, { style: settingsOptionStyle" in source
+
+
+@contract
+def test_settings_scrolls_as_one_body_and_places_tag_switch_on_right(source):
+    dialog = source.split('jsx(Dialog, { open: settingsOpen', 1)[1].split('jsx(FeedResults,', 1)[0]
+    assert 'jsx(ScrollArea' not in dialog
+    assert 'maxHeight: 360' not in dialog
+    row = dialog.split("jsxs('label',", 1)[1].split("jsxs('div',", 1)[0]
+    assert "justifyContent: 'space-between'" in row
+    assert row.index('children: t(locale, "关键词标签")') < row.index('jsx(Switch,')
 
 
 @contract
@@ -114,32 +130,18 @@ def test_scoped_routes_and_mutations(source):
     assert 'catch' in opened and 'host.notify' in opened
     assert opened.index('validDestination(event.url)') < opened.index('/read')
     assert 'domEvent.stopPropagation()' in source
-    # 内嵌 webview 预览面板 + 独立外部打开入口。
-    assert "useState(null)" in source
     assert 'setPreviewUrl(event.url)' in source
-    assert "jsx('webview'" in source
-    assert "getAttribute('src')" in source and "setAttribute('src', url)" in source
-    assert "jsx(WebView, { url: displayUrl, zoom, onZoomChange })" in source
-    assert "position: 'relative', flex: 1, minWidth: 0, minHeight: 0, overflow: 'hidden'" in source
-    assert "position: 'absolute', inset: 0, width: '100%', height: '100%'" in source
-    assert 'Ctrl+滚轮缩放' in source
-    assert "el.addEventListener('dom-ready', onReady)" in source
-    assert "window.addEventListener('wheel'" in source
-    assert "Math.max(0.4" in source and "Math.min(1.5" in source
-    assert "el.setZoomFactor(zoomRef.current)" in source
-    assert "sessionStorage" not in source
-    assert "document.documentElement.style.zoom" not in source
-    assert "overflow-x: auto !important" in source
-    assert "prefers-reduced-motion: reduce" in source
-    assert "grid-template-columns 180ms ease-out" in source
-    assert "event.ctrlKey && event.key === '0'" in source
-    assert '关闭预览' in source
-    # 外部打开入口集中在预览面板头部，卡片上不再有。
-    assert 'function externalClick' not in source
+    assert 'jsx(SandboxedFrame, {' in source
+    assert 'src: displayUrl' in source
+    assert "ctx.os.openExternal(url) === false" in source
+    assert "parsed.protocol === 'https:'" in source
+    assert 'onError: () =>' in source
+    assert 'onLoad:' not in source
+    for forbidden in ('webview', 'executeJavaScript', 'console-message', 'setZoomFactor', 'previewZoom'):
+        assert forbidden not in source
+    assert 'prefers-reduced-motion: reduce' in source
+    assert 'grid-template-columns 180ms ease-out' in source
     assert source.count('link-external') == 1
-    assert "partition: 'persist:intelligence-feed'" in source
-    assert "width: '100%'" in source and "height: '100%'" in source
-    assert 'ctx.os.openExternal' in source
     assert 'value: !event.favorite' in source
     assert "event.favorite ? 'star-full' : 'star-empty'" in source
     assert 'onMutate' not in source  # server-confirmed state, no optimistic loss on error
@@ -153,14 +155,12 @@ def test_scoped_routes_and_mutations(source):
 
 @contract
 def test_cards_tags_and_time_display(source):
-    # 卡片：主题色边框（减弱 50%），去掉旧的分隔线样式。
-    assert "border: `1px solid ${softAccent}`" in source
-    assert "const softAccent = 'color-mix(in srgb, var(--ui-accent) 50%, transparent)'" in source
-    assert "const softButtonStyle = { background: 'var(--ui-bg-quaternary)'" in source
-    # 未读标题用主题蓝色，已读灰色；所有操作按钮（含加载更多/重试）统一柔和填充。
+    assert "border: `1px solid ${softAccent}`" not in source
+    assert "borderRadius: 8" not in source
+    row = source.split("children: items.map(event => jsxs('li',", 1)[1].split('children: [', 1)[0]
+    assert "borderBottom: '1px solid var(--ui-stroke-secondary)'" in row
     assert "color: event.read ? muted : 'var(--ui-text-primary)'" in source
-    assert "color: event.read ? muted : softAccent" in source
-    assert "event.read ? '已读' : '未读'" in source
+    assert 'color: event.read ? muted : softAccent' in source
     assert source.count('style: softButtonStyle') >= 5
     # 领域/阅读筛选沿用 Desktop 原生浅色选中态，非选中项透明。
     assert "const selected = domain === value" in source
@@ -176,7 +176,7 @@ def test_cards_tags_and_time_display(source):
     assert domain_button.count("width: 120") == 1
     assert "variant: 'ghost', size: 'sm'" in domain_button
     assert "jsx(Codicon, { name: DOMAIN_ICONS[value]" in domain_button
-    assert "children: label" in domain_button
+    assert "children: t(locale, label)" in domain_button
     assert "children: countLabel" in domain_button
     for value, icon in (('all', 'home'), ('semiconductor', 'circuit-board'),
                         ('ai', 'hubot'), ('automotive', 'dashboard'),
@@ -186,7 +186,6 @@ def test_cards_tags_and_time_display(source):
     assert "readFilter === value" in source
     # 列表右侧为滚动条留位，避免与星标冲突。
     assert 'paddingRight: 12' in source
-    assert 'borderRadius: 8' in source
     # 卡片 li 本体不再用 borderBottom（预览面板头部的分隔线不受此限）。
     card_line = next(line for line in source.splitlines() if "padding: '6px 10px'" in line)
     assert 'borderBottom' not in card_line
@@ -198,10 +197,10 @@ def test_cards_tags_and_time_display(source):
     assert "padding: '6px 10px'" in source
     assert 'marginTop: 2' in source
     assert "useState('all')" in source
-    assert "domainButton('all', '全部')" in source
+    assert 'domainButton(\'all\', t(locale, "全部"))' in source
     # 热度元素：多源报道显示 ×N，单源显示 -。
     assert 'event.evidence_count > 1' in source
-    assert "'热度：" in source or '热度：' in source
+    assert 't(locale, "热度")' in source
     # 关键词标签：内置词表、最多 3 个、浅色主题色胶囊。
     assert 'const KEYWORDS = [' in source
     assert 'function keywordsFor(headline)' in source
@@ -211,7 +210,7 @@ def test_cards_tags_and_time_display(source):
     # 时间：北京时间数字格式 + 距今相对时间；标签在左、时间在右同一行。
     assert 'function formatTime(iso)' in source
     assert "replace('T', ' ')" in source
-    assert 'function relativeTime(iso)' in source
+    assert "function relativeTime(iso, locale = 'en')" in source
     assert "'刚刚'" in source and '分钟前' in source and '小时前' in source and '天前' in source
     assert "justifyContent: 'space-between'" in source
 
@@ -219,7 +218,7 @@ def test_cards_tags_and_time_display(source):
 @contract
 def test_navigation_and_reading_toolbar_have_region_dividers(source):
     assert "marginTop: 'auto', borderTop: '1px solid var(--ui-stroke-secondary)', paddingTop: 12" in source
-    toolbar = source.split("jsx(Input, { 'aria-label': '搜索资讯'", 1)[1].split("jsx(Dialog,", 1)[0]
+    toolbar = source.split('jsx(Input, { \'aria-label\': t(locale, "搜索资讯")', 1)[1].split("jsx(Dialog,", 1)[0]
     assert "borderBottom: '1px solid var(--ui-stroke-secondary)', paddingBottom: 12" in toolbar
 
 

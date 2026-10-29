@@ -1,8 +1,12 @@
 # plugin.yaml
 name: intelligence-feed
-version: "0.1.0"
-description: BriefNest · 讯集 — Hermes Desktop 多频道资讯聚合：半导体、AI、汽车、音乐与微博热搜
+version: "0.1.1"
+description: BriefNest — a profile-isolated news dashboard for Hermes Desktop with semiconductor, AI, automotive, music and Weibo channels
 license: MIT
+requires_env:
+  - name: LASTFM_API_KEY
+    description: Optional legacy Last.fm source credential; not needed by the default sources
+    secret: true
 python_dependencies:
   - "fastapi>=0.115,<1"
   - "pydantic>=2,<3"

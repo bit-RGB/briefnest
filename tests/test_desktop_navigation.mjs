@@ -42,10 +42,10 @@ function find(node, predicate) {
   }
 }
 function groups(tree) {
-  const nav = find(tree, n => n.props?.['aria-label'] === '资讯分类')
+  const nav = find(tree, n => n.props?.['aria-label'] === 'News categories')
   const navButtons = nav.props.children.filter(n => n?.type === 'Button')
   navButtons.push(nav.props.children.at(-1).props.children)
-  const filters = find(tree, n => n.props?.['aria-label'] === '阅读状态').props.children
+  const filters = find(tree, n => n.props?.['aria-label'] === 'Reading status').props.children
   return { navButtons, filters }
 }
 
@@ -57,7 +57,10 @@ test('navigation keeps equal widths, native icons, unread caps and exactly one s
   for (const button of navButtons) {
     assert.equal(button.props.variant, 'ghost')
     assert.equal(button.props.style.width, 120)
+    assert.equal(button.props.children[1].props.style.minWidth, 0)
+    assert.equal(button.props.children[1].props.style.textOverflow, 'ellipsis')
   }
+  assert.equal(navButtons[1].props.title, 'Semiconductors')
   assert.equal(navButtons[0].props.children[2].props.children, ' (999)')
   assert.equal(navButtons[2].props.children[2], '')
   assert.equal(navButtons[6].props.children[2].props.children, ' (8)')

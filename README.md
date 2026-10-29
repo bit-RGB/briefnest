@@ -1,6 +1,59 @@
-# 📰 BriefNest · 讯集
+# 📰 BriefNest
 
-🏷️ **当前版本：v0.1.0** · 📜 **许可证：MIT**
+🏷️ **Version: v0.1.1** · 📜 **License: MIT**
+
+A community news dashboard for Hermes Desktop: semiconductors, AI, automotive, music, Weibo hot topics and bookmarks. **English is the default UI language.** Switch to **简体中文** in Settings; the choice is saved. Article titles and publisher names remain source content.
+
+## ✨ Installation and capabilities
+
+```bash
+hermes plugins install bit-RGB/briefnest --enable --yes-deps
+```
+
+Enable **BriefNest** in Desktop plugin settings too, open the sidebar entry and select **Update now**. Features include search, read/unread filters, bookmarks, source switches, unread counts and mail-style rows separated by horizontal rules. The internal plugin ID remains `intelligence-feed`.
+
+Requires Python 3.11+ and Hermes Desktop exporting `SandboxedFrame` from `@hermes/plugin-sdk`, dashboard APIs, `hermes_constants.get_hermes_home()` and `agent.secret_scope.get_secret()`. No unverified minimum Hermes version is claimed. Windows is the currently tested platform; this is not an official plugin. Installation does not create cron jobs.
+
+## 🌐 Sandboxed preview limitations
+
+Previews use SDK `SandboxedFrame` with its default sandbox. No guest-script injection, console bridge, preload or Node integration. Sites may block embedding with CSP/X-Frame-Options; **Open externally** is always available. An `onLoad` event cannot prove the page rendered; explicit frame errors also show a fallback. No embedding restrictions are bypassed.
+
+The previous Electron-specific zoom controls and forced guest scrollbars are removed. Website-native scrolling, panel animation and reduced-motion support remain. Cross-origin frame content is not inspected or modified.
+
+## 🔒 Profile storage and upgrading
+
+Each operation resolves `get_hermes_home() / "plugin-data" / "intelligence-feed" / "intelligence.db"`. The process-global `INTELLIGENCE_FEED_DATA_DIR` override is no longer honored. Shared legacy data has no reliable profile owner, so it is **never imported automatically**.
+
+Before first collection: back up the old database, stop the old collector during the version switch, select the intended Hermes profile/environment, and run from the plugin directory using Hermes's Python:
+
+```bash
+python scripts/migrate_data.py --source "/absolute/path/to/old/intelligence.db"
+python scripts/migrate_data.py --source "/absolute/path/to/old/intelligence.db" --apply
+```
+
+The first command is a dry run; confirm its destination before applying. SQLite backup includes committed WAL data. Integrity checks, history, read state, bookmarks and source switches are retained. The source is never removed, an existing destination is never overwritten, and partial copies are not published. Reconcile an existing destination deliberately, not by deleting it to force import. Imported state keeps its original profile labels. Do not copy shared history to multiple profiles without explicitly intending to share it. Models are not copied.
+
+Default feeds require no API keys. The fetch adapter, collector redaction and API URL-redaction paths all use `agent.secret_scope.get_secret(NAME)` with no plugin-defined environment fallback. The optional legacy Last.fm adapter uses `LASTFM_API_KEY`, declared in manifest `requires_env`; missing credentials skip that source. Provision it through Hermes for the intended profile. Any custom `api_key_env` name must also be declared in `requires_env`. Never commit credentials or embed them in source URLs.
+
+## 🛠️ Development
+
+Use an isolated Python environment with Hermes core modules importable, plus `requirements-dev.txt`:
+
+```bash
+python -m pytest tests/ -q
+node --test tests/test_desktop_admission.mjs tests/test_desktop_navigation.mjs tests/test_desktop_preview.mjs
+node --check desktop/plugin.js
+```
+
+Tests use temporary profile homes, fixture feeds and synthetic credentials. SDK-adapter tests are not live acceptance for every publisher or OS. Optional local title translation is unchanged and its development is paused; no model is bundled/downloaded. `INTELLIGENCE_FEED_TRANSLATION_MODEL_DIR` can point to an existing separately managed model.
+
+Code is MIT licensed; third-party articles, titles, trademarks and images are not relicensed. Feed/preview/external requests contact the original sites. Respect their terms and access restrictions. No telemetry, self-updater or native binaries are bundled.
+
+---
+
+# 简体中文 · 讯集
+
+🏷️ **当前版本：v0.1.1** · 📜 **许可证：MIT**
 
 在 Hermes 中，一站浏览你关心的资讯。BriefNest · 讯集是 Hermes Desktop 的多频道资讯插件，支持半导体、AI、汽车、音乐资讯和微博热搜。
 
@@ -11,7 +64,9 @@
 - 🗂️ **多频道看板**：全部、半导体、AI、汽车、音乐、微博热搜和收藏夹。
 - ⭐ **阅读管理**：关键词搜索、已读 / 未读筛选、收藏、分页与未读数量。
 - 📡 **多来源聚合**：RSS / Atom、HTML 列表及微博热搜适配器；相近资讯聚合为事件。
-- 🌐 **网页预览**：在桌面端阅读原网页，保留原文入口。
+- 🌐 **网页预览**：SDK SandboxedFrame，不注入脚本；禁止嵌入的网站使用外部打开。
+- 🌏 **语言切换**：默认英文，在设置中切换简体中文并记忆。
+- 📧 **横线列表**：邮件式分隔，不再给每条消息单独加边框。
 - ⚙️ **来源设置**：单独启停来源，停用后保留历史数据与收藏。
 - ⚡ **无 LLM 采集**：Python 标准库抓取与 SQLite 存储，不需要大模型 API Key。
 - 🌏 **可选本地翻译**：支持 CTranslate2 英文标题翻译，未安装模型仍可正常采集和阅读原文。
@@ -39,7 +94,7 @@
 
 如安装后没有页面，可在命令面板运行 **Reload desktop plugins**。API 提示 404 时，检查当前 profile 是否已启用 `intelligence-feed`，并重启 Desktop 后端。
 
-> 🔗 项目原名 Intelligence Feed，GitHub 仓库已更名为 `briefnest`。为兼容现有安装，内部插件 ID、路由、Python 包名和数据目录仍使用 `intelligence-feed` / `intelligence_feed`；改名不迁移或清空收藏与阅读记录。
+> 🔗 仓库已更名为 `briefnest`。内部插件 ID、路由、Python 包名保留不变。v0.1.1 改用 profile 隔离目录，须按上文显式导入旧库，不会自动删除或跨 profile 导入历史。
 
 安装机制参考：[Hermes 插件文档](https://hermes-agent.nousresearch.com/docs/developer-guide/plugins) · [Desktop Plugin SDK](https://hermes-agent.nousresearch.com/docs/developer-guide/desktop-plugin-sdk)。
 
@@ -51,7 +106,7 @@
 python scripts/run_update.py
 ```
 
-命令输出采集结果 JSON。也可由操作系统任务计划或 Hermes cron 周期运行此脚本；**安装插件不会自动创建定时任务**。`scripts/intelligence_feed_update.py` 是 Windows 默认安装路径的兼容启动器，不适用于任意自定义安装路径。
+命令输出采集结果 JSON。可由操作系统任务计划或 Hermes cron 运行；**安装插件不会自动创建定时任务**。`scripts/intelligence_feed_update.py` 从当前 Hermes profile 的 home 下查找插件，不再写死 Windows 路径。
 
 ## 📡 来源配置
 
@@ -73,13 +128,13 @@ python scripts/run_update.py
 
 ## 🔒 数据与隐私
 
-数据库不在源码仓库中。Windows 默认位置：
+数据库不在源码仓库中。当前 profile 的存储位置：
 
 ```text
-%LOCALAPPDATA%/hermes/data/intelligence-feed/intelligence.db
+<current Hermes home>/plugin-data/intelligence-feed/intelligence.db
 ```
 
-设置环境变量 `INTELLIGENCE_FEED_DATA_DIR` 可覆盖数据目录。当前默认数据目录不是按 Hermes profile 隔离的；需要物理隔离时应为不同进程设置不同目录。
+旧 Windows 默认位置为 `%LOCALAPPDATA%/hermes/data/intelligence-feed/intelligence.db`，其他平台原为 `~/hermes/data/intelligence-feed/intelligence.db`。不再使用进程级 `INTELLIGENCE_FEED_DATA_DIR` 覆盖。迁移前先备份，使用上文脚本查看目标 profile 后加 `--apply`；原库保留、目标存在时拒绝覆盖。
 
 仓库不包含个人数据库、阅读记录、收藏、密钥、日志或翻译模型。插件会连接配置的第三方资讯站点；打开原文或内嵌预览同样会访问对应站点。
 

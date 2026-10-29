@@ -1,11 +1,10 @@
 """Budgeted collection with atomic source writes and event evidence merging."""
-import os
 import re
 import time
 import unicodedata
 from dataclasses import asdict, dataclass
-from urllib.parse import quote, quote_plus
 
+from .credentials import configured_credentials, sanitize as _sanitize
 from .db import connect
 from .repository import _now_beijing, rebuild_event_search, upsert_item
 from .sources import fetch_source, load_sources, sync_sources
@@ -57,25 +56,11 @@ def _merge_event(conn, event_id):
     return False
 
 
-def _sanitize(exc, credentials):
-    message = str(exc)
-    # Remove query/fragment data before credential replacement can damage
-    # the URL scheme and prevent recognition. Cover absolute and relative URLs.
-    message = re.sub(r"(?<!\S)([^\s?#]+)[?#][^\s]*", r"\1", message)
-    for value in sorted(credentials, key=len, reverse=True):
-        message = re.sub(re.escape(value), "[REDACTED]", message, flags=re.IGNORECASE)
-    return " ".join(message.split())[:500]
-
-
 def run_update(*, source_loader=load_sources, source_fetcher=fetch_source,
                clock=time.monotonic, target_seconds=120, hard_stop_seconds=150) -> CollectResult:
     started_at = clock()
     sources = list(source_loader())
-    credentials = set()
-    for source in sources:
-        value = os.environ.get(source.get("api_key_env", ""), "").strip()
-        if value:
-            credentials.update((value, quote(value, safe=""), quote_plus(value, safe="")))
+    credentials = configured_credentials(sources)
     conn = connect()
     inserted = merged = errors = started = successful = 0
     try:

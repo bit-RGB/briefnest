@@ -2,13 +2,13 @@
 from __future__ import annotations
 
 import json
-import os
 import sys
 from pathlib import Path
+from hermes_constants import get_hermes_home
 
 
 def installed_plugin_root() -> Path:
-    return Path(os.environ.get("LOCALAPPDATA", Path.home())) / "hermes" / "plugins" / "intelligence-feed"
+    return get_hermes_home() / "plugins" / "intelligence-feed"
 
 
 def _load_collector():

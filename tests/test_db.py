@@ -4,6 +4,7 @@ import sqlite3
 import pytest
 
 from intelligence_feed.db import connect, migrate
+from intelligence_feed.paths import database_path
 
 SCHEMA_OBJECTS = {
     "sources",
@@ -82,7 +83,7 @@ def test_migrate_rolls_back_on_failure(tmp_path, monkeypatch):
 
 def test_connect_adds_translation_column_to_existing_database(tmp_path, monkeypatch):
     monkeypatch.setenv("INTELLIGENCE_FEED_DATA_DIR", str(tmp_path))
-    legacy = sqlite3.connect(tmp_path / "intelligence.db")
+    legacy = sqlite3.connect(database_path())
     legacy.execute(
         """CREATE TABLE articles(
             id INTEGER PRIMARY KEY,

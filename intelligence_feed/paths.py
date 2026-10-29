@@ -1,12 +1,14 @@
 # intelligence_feed/paths.py
-import os
 from pathlib import Path
+from hermes_constants import get_hermes_home
 
 
-def data_dir() -> Path:
-    override = os.getenv("INTELLIGENCE_FEED_DATA_DIR")
-    root = Path(override) if override else Path(os.getenv("LOCALAPPDATA", Path.home())) / "hermes" / "data" / "intelligence-feed"
-    root.mkdir(parents=True, exist_ok=True)
+def data_dir(*, create: bool = True) -> Path:
+    # Resolve on every operation: one Hermes process can serve multiple profiles.
+    # A process-global environment override would break this isolation.
+    root = get_hermes_home() / "plugin-data" / "intelligence-feed"
+    if create:
+        root.mkdir(parents=True, exist_ok=True)
     return root
 
 

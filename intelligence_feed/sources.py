@@ -1,12 +1,12 @@
 # intelligence_feed/sources.py
 """来源清单加载、sources 表同步、按 adapter 分派的单源采集。"""
 import json
-import os
 import re
 import urllib.error
 from pathlib import Path
 from urllib.parse import quote, urlsplit, urlunsplit
 
+from .credentials import credential_variants, sanitize, source_key
 from .fetch import fetch_url
 from .models import SourceFetchResult
 from .parsers import parse_feed, parse_html_list, parse_lastfm, parse_weibo_hot
@@ -119,7 +119,7 @@ def fetch_source(source: dict, state: dict | None = None) -> SourceFetchResult:
     """抓取并解析单个来源；不写数据库。
 
     state 可含 etag / last_modified 用于条件请求。api_key_env 存在但
-    环境变量为空时返回 skipped_missing_credential，不发起请求。
+    当前 Hermes profile 的密钥为空时返回 skipped_missing_credential，不发起请求。
     """
     state = state or {}
     # 未知 adapter 是纯配置错误，必须在凭据处理与任何网络请求之前拒绝（评审 I2）。
@@ -130,8 +130,8 @@ def fetch_source(source: dict, state: dict | None = None) -> SourceFetchResult:
 
     url = source["url"]
     key_env = source.get("api_key_env")
+    key = source_key(source)
     if key_env:
-        key = os.environ.get(key_env, "").strip()
         if not key:
             return SourceFetchResult(
                 status=STATUS_MISSING_CREDENTIAL, items=[], etag=None, last_modified=None
@@ -149,7 +149,11 @@ def fetch_source(source: dict, state: dict | None = None) -> SourceFetchResult:
             extra_headers=source.get("headers"),
         )
     except urllib.error.HTTPError as exc:
-        _raise_sanitized_http_error(exc)
+        _raise_sanitized_http_error(exc, credential_variants(key))
+    except Exception as exc:
+        if key:
+            raise RuntimeError(sanitize(exc, credential_variants(key))) from None
+        raise
     if resp.not_modified:
         return SourceFetchResult(
             status=STATUS_NOT_MODIFIED,
@@ -173,7 +177,7 @@ def fetch_source(source: dict, state: dict | None = None) -> SourceFetchResult:
     )
 
 
-def _raise_sanitized_http_error(exc: urllib.error.HTTPError) -> None:
+def _raise_sanitized_http_error(exc: urllib.error.HTTPError, credentials=()) -> None:
     """以去除 query 的 URL 重抛 HTTPError（评审 I3）。
 
     Last.fm 等来源把 API key 拼在 URL query 里；urllib 的 HTTPError 会把
@@ -184,4 +188,6 @@ def _raise_sanitized_http_error(exc: urllib.error.HTTPError) -> None:
     raw_url = getattr(exc, "url", "") or ""
     parts = urlsplit(raw_url)
     clean_url = urlunsplit((parts.scheme, parts.netloc, parts.path, "", ""))
-    raise urllib.error.HTTPError(clean_url, exc.code, exc.msg, None, None) from None
+    raise urllib.error.HTTPError(
+        sanitize(clean_url, credentials), exc.code, sanitize(exc.msg, credentials), None, None
+    ) from None
