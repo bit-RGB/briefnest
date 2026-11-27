@@ -1,6 +1,6 @@
 # 📰 BriefNest
 
-🏷️ **Version: v0.1.1** · 📜 **License: MIT**
+🏷️ **Version: v0.1.5** · 📜 **License: MIT**
 
 A community news dashboard for Hermes Desktop: semiconductors, AI, automotive, music, Weibo hot topics and bookmarks. **English is the default UI language.** Switch to **简体中文** in Settings; the choice is saved. Article titles and publisher names remain source content.
 
@@ -12,13 +12,27 @@ hermes plugins install bit-RGB/briefnest --enable --yes-deps
 
 Enable **BriefNest** in Desktop plugin settings too, open the sidebar entry and select **Update now**. Features include search, read/unread filters, bookmarks, source switches, unread counts and mail-style rows separated by horizontal rules. The internal plugin ID remains `intelligence-feed`.
 
+**GitHub Trending** opens on **This month** and can be switched to **Today** or **This week**. It keeps GitHub's original order, displays star counts for reference, and retains the last successful snapshot for each period if collection fails.
+
 Requires Python 3.11+ and Hermes Desktop exporting `SandboxedFrame` from `@hermes/plugin-sdk`, dashboard APIs, `hermes_constants.get_hermes_home()` and `agent.secret_scope.get_secret()`. No unverified minimum Hermes version is claimed. Windows is the currently tested platform; this is not an official plugin. Installation does not create cron jobs.
 
-## 🌐 Sandboxed preview limitations
+## 🌐 Right-side browser and remembered login
 
-Previews use SDK `SandboxedFrame` with its default sandbox. No guest-script injection, console bridge, preload or Node integration. Sites may block embedding with CSP/X-Frame-Options; **Open externally** is always available. An `onLoad` event cannot prove the page rendered; explicit frame errors also show a fallback. No embedding restrictions are bypassed.
+On the supported local Windows backend, the right-hand reader uses a **dedicated local browser profile** and displays its in-memory image stream through the public plugin REST API. Page images and keyboard/pointer input pass through the plugin helper; this is **not authentication handled exclusively by the Hermes host**. Remote pages receive no plugin bridge, Node integration or guest-script injection. Login frames are not written to disk or sent to a model by this feature. Remote connection routes do not start a login browser by default.
 
-The previous Electron-specific zoom controls and forced guest scrollbars are removed. Website-native scrolling, panel animation and reduced-motion support remain. Cross-origin frame content is not inspected or modified.
+Closing a preview, restarting Hermes or updating this plugin does not intentionally erase its dedicated login profile. It is separated by the actual backend Hermes home and selected connection/profile scope; your ordinary Edge/Chrome data is never imported. Use **Clear login data** and confirm to remove only the current dedicated profile, without touching articles or favorites. The old temporary prototype's login is not migrated: sign in once in this new dedicated profile. Sites can still expire or revoke login, require another verification, or reject automation.
+
+The toolbar keeps **− / percentage / +** immediately before Close: default 80%, range 40%–150%, step 10 points; clicking the percentage resets to 80%. Browser viewport scaling does not alter Hermes's application zoom. Panel animation, divider sizing and reduced-motion support remain. The currently supported helper requires Windows, Microsoft Edge and a Node 26+ runtime discovered through Hermes; no browser, native binary or Node dependency is bundled or automatically installed. Where the helper is unavailable, SDK `SandboxedFrame` keeps its default sandbox and the visible **Open externally** fallback. An `onLoad` event is not proof that a site rendered. No embedding restrictions are bypassed.
+
+The preview is a full-height right-hand pane, aligned with the top of the workspace and ending above the shared status bar. Search, read/unread filters and settings stay above the article list only; they do not reduce preview height. Narrow list columns wrap filter controls instead of overlapping the preview.
+
+Drag the vertical divider to resize the preview (default 60%, range 30%–75%); the width is saved when the drag ends. The focused divider also supports Left/Right and Home/End. News rows use full-width horizontal separators and compact spacing. Hover highlights the entire row, including the bookmark area; opening an article retains its selection. Bookmark clicks do not open articles. The favorites separator spans the full sidebar width.
+
+Scrolling to the bottom automatically appends the next page; there is no **Load more** button. Short first pages automatically fill the viewport. Continuations are serialized and deduplicated, stop at the final cursor, and ignore responses from an old filter/profile or refreshed first page. A failed continuation keeps existing rows and pauses until **Retry**. Opening an article in **All**, or changing a bookmark outside **Favorites**, preserves appended rows and scroll position; changes that remove an article from the current read/favorites filter refresh that filtered list.
+
+A fixed page-level bottom status bar spans the channel sidebar, article list and preview, above Hermes's own global status bar. It shows the last update in Beijing time and the manual update action; it is not part of the article list or its scroll area.
+
+The channel sidebar is 1.5 times its natural content width, still adapting to the current font and longest localized label and keeping every channel equally wide with compact icon spacing. Counts appear beside **Unread** and **Read** for the selected channel (or favorites), not in the sidebar; zero counts are hidden and displayed counts are capped at `(999)`. These are channel totals, not search-result counts.
 
 ## 🔒 Profile storage and upgrading
 
@@ -41,7 +55,7 @@ Use an isolated Python environment with Hermes core modules importable, plus `re
 
 ```bash
 python -m pytest tests/ -q
-node --test tests/test_desktop_admission.mjs tests/test_desktop_navigation.mjs tests/test_desktop_preview.mjs
+node --test tests/test_desktop_*.mjs
 node --check desktop/plugin.js
 ```
 
@@ -53,7 +67,7 @@ Code is MIT licensed; third-party articles, titles, trademarks and images are no
 
 # 简体中文 · 讯集
 
-🏷️ **当前版本：v0.1.1** · 📜 **许可证：MIT**
+🏷️ **当前版本：v0.1.5** · 📜 **许可证：MIT**
 
 在 Hermes 中，一站浏览你关心的资讯。BriefNest · 讯集是 Hermes Desktop 的多频道资讯插件，支持半导体、AI、汽车、音乐资讯和微博热搜。
 
@@ -61,10 +75,12 @@ Code is MIT licensed; third-party articles, titles, trademarks and images are no
 
 ## ✨ 功能
 
-- 🗂️ **多频道看板**：全部、半导体、AI、汽车、音乐、微博热搜和收藏夹。
+- 🗂️ **多频道看板**：全部、半导体、AI、汽车、音乐、微博热搜、GitHub 趋势和收藏夹。
+- 📈 **GitHub 趋势**：进频道默认本月，可临时切换今日和本周；按 GitHub 原榜单顺序展示。采集失败保留该档上次成功榜单，已收藏仓库下榜后仍可访问。
 - ⭐ **阅读管理**：关键词搜索、已读 / 未读筛选、收藏、分页与未读数量。
 - 📡 **多来源聚合**：RSS / Atom、HTML 列表及微博热搜适配器；相近资讯聚合为事件。
-- 🌐 **网页预览**：SDK SandboxedFrame，不注入脚本；禁止嵌入的网站使用外部打开。
+- 🌐 **右侧网页阅读**：本机专用浏览器画面流，通过公开插件接口接入；不可用时保留 SDK 沙箱预览与外部打开。
+- 🔐 **记住登录**：专用档案重启/更新不主动清除；工具栏可确认清除当前来源登录，不影响新闻、收藏或系统浏览器。
 - 🌏 **语言切换**：默认英文，在设置中切换简体中文并记忆。
 - 📧 **横线列表**：邮件式分隔，不再给每条消息单独加边框。
 - ⚙️ **来源设置**：单独启停来源，停用后保留历史数据与收藏。
@@ -75,6 +91,7 @@ Code is MIT licensed; third-party articles, titles, trademarks and images are no
 
 - 支持桌面插件 SDK 与 `dashboard/plugin_api.py` 的 Hermes Desktop。
 - Python 3.11+；后端依赖 FastAPI 和 Pydantic 2。
+- 本机画面流需要可用的 Chromium 浏览器与 Hermes 能发现的 Node；当前验证平台为 Windows，不自动安装浏览器或依赖。远程连接不默认启动登录浏览器。
 - 能通过 HTTPS 访问所选资讯来源。
 - 开发测试需要 pytest、httpx；前端导航测试需要 Node.js 18+。
 
@@ -117,8 +134,8 @@ python scripts/run_update.py
 | 字段 | 说明 |
 | --- | --- |
 | `id` / `name` | 唯一标识与显示名称 |
-| `domain` | `semiconductor`、`ai`、`automotive`、`music`、`weibo` |
-| `adapter` | `feed`、`html-list` 或 `weibo-hot` |
+| `domain` | `semiconductor`、`ai`、`automotive`、`music`、`weibo`、`github-trending` |
+| `adapter` | `feed`、`html-list`、`weibo-hot` 或 `github-trending` |
 | `url` | HTTPS 来源地址 |
 | `include_url_regex` | HTML 列表正文链接白名单，避免采到导航页 |
 | `max_items` | 单次收取上限 |
@@ -137,6 +154,8 @@ python scripts/run_update.py
 旧 Windows 默认位置为 `%LOCALAPPDATA%/hermes/data/intelligence-feed/intelligence.db`，其他平台原为 `~/hermes/data/intelligence-feed/intelligence.db`。不再使用进程级 `INTELLIGENCE_FEED_DATA_DIR` 覆盖。迁移前先备份，使用上文脚本查看目标 profile 后加 `--apply`；原库保留、目标存在时拒绝覆盖。
 
 仓库不包含个人数据库、阅读记录、收藏、密钥、日志或翻译模型。插件会连接配置的第三方资讯站点；打开原文或内嵌预览同样会访问对应站点。
+
+**登录与画面流：** 网页画面及输入会经过 BriefNest 的本机辅助层，不再等同于由 Hermes 宿主独占处理认证；画面只在内存中用于显示，不由此功能落盘或交给模型。登录交给专用浏览器档案保存，不复制日常 Edge/Chrome 的 Cookie。档案按当前后端 Hermes home 与连接/profile 作用域分开；退出阅读、重启与插件更新不会主动清除。点击「清除登录数据」并确认，只清当前专用档案，不删资讯库。旧隔离版的临时登录不自动迁入，需在新档案登录一次；网站自行过期或风控时仍可能要求重登。扫码、短信与每个真实站点的可用性须单独复测，不能用模拟页测试冒充验收。
 
 ### 🌏 可选英文标题翻译
 

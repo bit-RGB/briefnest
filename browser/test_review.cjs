@@ -1,0 +1,45 @@
+'use strict';
+const test = require('node:test');
+const assert = require('node:assert/strict');
+const { EventEmitter } = require('node:events');
+const { Browser } = require('./runtime.cjs');
+const make = () => { const b = new Browser('.', 'http://127.0.0.1:54321'); b.sid = 'owned'; b.cdp = { call: async () => ({}) }; return b; };
+test('committed top-frame site identity follows navigation, ignores subframes and strips secrets', () => {
+  const b = make(), events = []; b.on('status', state => events.push(state));
+  b.onEvent({ method: 'Page.frameNavigated', sessionId: 'owned', params: { frame: { id: 'top', url: 'https://first.example/a?code=synthetic' } } });
+  assert.equal(b.siteOrigin, 'https://first.example');
+  assert.equal(b.fixtureOnly, false);
+  assert.equal(JSON.stringify(events).includes('synthetic'), false);
+  b.onEvent({ method: 'Page.frameNavigated', sessionId: 'owned', params: { frame: { id: 'sub', parentId: 'top', url: 'https://other.example/' } } });
+  assert.equal(b.siteOrigin, 'https://first.example');
+  b.onEvent({ method: 'Page.frameNavigated', sessionId: 'old-session', params: { frame: { id: 'top', url: 'https://old.example/' } } });
+  assert.equal(b.siteOrigin, 'https://first.example');
+  b.onEvent({ method: 'Page.navigatedWithinDocument', sessionId: 'owned', params: { frameId: 'top', url: 'https://first.example/#synthetic' } });
+  assert.equal(b.siteOrigin, 'https://first.example');
+  b.onEvent({ method: 'Page.frameNavigated', sessionId: 'owned', params: { frame: { id: 'top', url: 'http://127.0.0.1:54321/fixture' } } });
+  assert.equal(b.siteOrigin, 'http://127.0.0.1:54321');
+});
+test('cleanup waits for owned kill fallback and does not claim persistent login data was cleared', async () => {
+  const b = make(), child = new EventEmitter(); let killed = 0, waits = 0;
+  Object.assign(child, { exitCode: null, signalCode: null, pid: 1, kill: () => { killed++; child.signalCode = 'SIGTERM'; return true; } });
+  b.child = child; b.context = 'synthetic-owned-context';
+  b.cdp = { call: async () => { throw new Error('injected refusal'); }, ws: { close() {} } };
+  b.waitForExit = async () => { waits++; return child.signalCode !== null; };
+  const result = await b.stop();
+  assert.equal(killed, 1); assert.equal(waits, 2);
+  assert.equal(result.sessionCleared, false);
+  assert.equal(result.browserExited, true);
+  assert.equal(result.sessionCleared, false);
+});
+test('cleanup failure is explicit and retryable when owned process refuses termination', async () => {
+  const b = make(), child = new EventEmitter();
+  Object.assign(child, { exitCode: null, signalCode: null, pid: 1, kill: () => false });
+  b.child = child; b.context = 'synthetic-owned-context';
+  b.cdp = { call: async () => { throw new Error('injected refusal'); }, ws: { close() {} } };
+  b.waitForExit = async () => false;
+  const first = await b.stop();
+  assert.equal(first.phase, 'cleanup_failed'); assert.equal(first.sessionCleared, false);
+  child.exitCode = 0;
+  const second = await b.stop();
+  assert.equal(second.browserExited, true); assert.equal(second.sessionCleared, false);
+});

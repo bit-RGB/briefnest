@@ -13,6 +13,7 @@ CREATE UNIQUE INDEX IF NOT EXISTS one_primary_article_per_event ON event_article
 CREATE TABLE IF NOT EXISTS user_state(profile TEXT NOT NULL, event_id INTEGER NOT NULL REFERENCES events(id), read_at TEXT, favorite_at TEXT, PRIMARY KEY(profile,event_id));
 CREATE TABLE IF NOT EXISTS update_runs(id INTEGER PRIMARY KEY, started_at TEXT NOT NULL, finished_at TEXT, status TEXT NOT NULL, inserted_count INTEGER NOT NULL DEFAULT 0, merged_count INTEGER NOT NULL DEFAULT 0, error_count INTEGER NOT NULL DEFAULT 0);
 CREATE TABLE IF NOT EXISTS source_runs(id INTEGER PRIMARY KEY, run_id INTEGER NOT NULL REFERENCES update_runs(id), source_id TEXT NOT NULL, status TEXT NOT NULL, item_count INTEGER NOT NULL DEFAULT 0, error TEXT, elapsed_ms INTEGER NOT NULL DEFAULT 0);
+CREATE TABLE IF NOT EXISTS github_trending_ranks(source_id TEXT NOT NULL REFERENCES sources(id), rank INTEGER NOT NULL, event_id INTEGER NOT NULL REFERENCES events(id), summary TEXT NOT NULL, language TEXT NOT NULL, stars INTEGER NOT NULL, period_stars INTEGER NOT NULL, PRIMARY KEY(source_id,rank), UNIQUE(source_id,event_id));
 CREATE VIRTUAL TABLE IF NOT EXISTS event_search USING fts5(headline, source_name);
 """
 

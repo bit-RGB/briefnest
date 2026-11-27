@@ -22,6 +22,7 @@ MANIFEST_IDS = {
     "mistral-news", "nvidia-ai", "github-ai", "techcrunch-ai", "nature-ml",
     "d1ev", "ithome-car",
     "ifeng-music", "sina-music", "china-music", "weibo-hot",
+    "github-trending-daily", "github-trending-weekly", "github-trending-monthly",
 }
 
 
@@ -76,7 +77,7 @@ LASTFM_SOURCE = {"id": "lastfm-top-tracks", "domain": "music", "name": "Last.fm"
 def test_load_sources_returns_exact_manifest():
     sources = load_sources()
     assert {s["id"] for s in sources} == MANIFEST_IDS
-    assert all(s["adapter"] in {"feed", "html-list", "weibo-hot"} for s in sources)
+    assert all(s["adapter"] in {"feed", "html-list", "weibo-hot", "github-trending"} for s in sources)
     assert all(s["url"].startswith("https://") for s in sources)
     assert all("api_key_env" not in s for s in sources)
 

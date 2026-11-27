@@ -111,6 +111,11 @@ def counts(profile: Profile):
     return service.counts(profile)
 
 
+@router.get("/github-trending")
+def github_trending(profile: Profile, period: Literal["daily", "weekly", "monthly"] = "monthly"):
+    return service.list_github_trending(profile, period)
+
+
 @router.get("/sources")
 def source_settings():
     return service.list_sources()
@@ -177,3 +182,116 @@ async def updates():
     _updates.add(task)
     task.add_done_callback(_finished)
     return await asyncio.shield(task)
+
+
+# Persistent preview is a private child process behind the same public REST
+# router/error boundary. Never let FastAPI pre-buffer these JSON request bodies.
+import json
+from fastapi import Request
+from intelligence_feed.browser_service import BrowserError, BODY_LIMIT, browser_service
+
+
+async def _browser_body(request: Request):
+    raw = bytearray()
+    async for chunk in request.stream():
+        if len(raw) + len(chunk) > BODY_LIMIT:
+            raise HTTPException(413, "Request too large")
+        raw.extend(chunk)
+    try:
+        def invalid_constant(_value):
+            raise ValueError()
+        body = json.loads(raw, parse_constant=invalid_constant)
+        if not isinstance(body, dict):
+            raise ValueError()
+        return body
+    except (ValueError, UnicodeError, RecursionError):
+        raise HTTPException(400, "Invalid request") from None
+
+
+def _browser_finished(task, manager, control):
+    manager.release(control)
+    if not task.cancelled():
+        task.exception()  # Consume detached failures without logging child data.
+
+
+async def _browser_call(operation, *args, request=None):
+    manager = operation.__self__
+    control = None
+    task = watcher = None
+    try:
+        # Admission runs before to_thread, so overload never queues unlimited
+        # executor jobs. to_thread retains the current profile ContextVars.
+        control = manager.prepare(operation.__name__, args)
+        task = asyncio.create_task(asyncio.to_thread(operation, *args, _control=control))
+        task.add_done_callback(lambda done: _browser_finished(done, manager, control))
+        if request is not None:
+            async def disconnected():
+                while not await request.is_disconnected():
+                    await asyncio.sleep(.025)
+                control.cancel.set()
+            watcher = asyncio.create_task(disconnected())
+        pending = (task, watcher) if watcher is not None else (task,)
+        done, _ = await asyncio.wait(pending, timeout=max(0, control.deadline - manager.clock()),
+                                     return_when=asyncio.FIRST_COMPLETED)
+        if not done:
+            # Leave already-dispatched RPC to finish/tear down within its own
+            # remaining budget. A queued executor job may never send later.
+            control.cancel.set()
+            raise BrowserError(504, fatal=False)
+        if watcher is not None and watcher in done:
+            raise asyncio.CancelledError()
+        return await asyncio.shield(task)
+    except asyncio.CancelledError:
+        if control is not None:
+            control.cancel.set()
+        raise
+    except BrowserError as error:
+        raise HTTPException(error.status, error.detail,
+                            headers={'X-Browser-Error': error.code}) from None
+    finally:
+        if watcher is not None:
+            watcher.cancel()
+        if control is not None and task is None:
+            manager.release(control)
+
+
+@router.get("/browser/status")
+async def browser_status(request: Request = None):
+    return await _browser_call(browser_service.status, request=request)
+
+
+@router.post("/browser/sessions")
+async def browser_create(request: Request):
+    return await _browser_call(browser_service.create, await _browser_body(request), request=request)
+
+
+@router.get("/browser/sessions/{id}/frame")
+async def browser_frame(id: str, after_seq: Annotated[int, Query(ge=0, le=9007199254740991)] = 0,
+                        request: Request = None, *, wait_ms: Annotated[int, Query(ge=0, le=1000)] = 0):
+    # Query values travel as text; reject coercions such as "1.0" and duplicates.
+    if request is not None:
+        waits = request.query_params.getlist('wait_ms')
+        if waits and (len(waits) != 1 or not waits[0].isascii() or not waits[0].isdigit()):
+            raise HTTPException(400, "Invalid request")
+    return await _browser_call(browser_service.frame, id, after_seq, wait_ms, request=request)
+
+
+@router.post("/browser/sessions/{id}/action")
+async def browser_action(id: str, request: Request):
+    body = await _browser_body(request)
+    if set(body) != {"op", "payload"}:
+        raise HTTPException(400, "Invalid request")
+    return await _browser_call(browser_service.action, id, body["op"], body["payload"], request=request)
+
+
+@router.delete("/browser/sessions/{id}")
+async def browser_close(id: str, request: Request = None):
+    return await _browser_call(browser_service.close, id, request=request)
+
+
+@router.post("/browser/sessions/{id}/clear")
+async def browser_clear(id: str, request: Request):
+    body = await _browser_body(request)
+    if set(body) != {"confirm"} or body["confirm"] is not True:
+        raise HTTPException(400, "Invalid request")
+    return await _browser_call(browser_service.clear, id, True, request=request)

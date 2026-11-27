@@ -100,7 +100,8 @@ def translate_pending(conn, *, translator=None, limit: int = 100) -> int:
     if limit <= 0:
         return 0
     rows = conn.execute(
-        "SELECT id, title FROM articles WHERE translated_title IS NULL ORDER BY id"
+        """SELECT a.id, a.title FROM articles a JOIN sources s ON s.id=a.source_id
+           WHERE a.translated_title IS NULL AND s.adapter <> 'github-trending' ORDER BY a.id"""
     ).fetchall()
     candidates = [(int(row["id"]), row["title"]) for row in rows if should_translate(row["title"])][:limit]
     if not candidates:

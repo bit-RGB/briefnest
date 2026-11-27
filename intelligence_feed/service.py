@@ -2,7 +2,7 @@
 import logging
 from contextlib import closing
 
-from . import collector, db, repository, sources, translation
+from . import collector, db, github_trending, repository, sources, translation
 from .credentials import configured_credentials as _configured_credentials
 
 logger = logging.getLogger(__name__)
@@ -16,6 +16,11 @@ def configured_credentials():
 def list_events(*, profile, domain, read, q, limit, cursor):
     with closing(db.connect()) as conn:
         return repository.list_events(conn, profile, domain, read, q, limit, cursor)
+
+
+def list_github_trending(profile, period):
+    with closing(db.connect()) as conn:
+        return github_trending.list_snapshot(conn, profile, period)
 
 
 def counts(profile):

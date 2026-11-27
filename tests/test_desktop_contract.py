@@ -45,17 +45,20 @@ def test_filters_debounce_and_query_keys(source):
     assert 'setTimeout(() => setSearchText(draftSearch), 250)' in source
     assert 'clearTimeout(timer)' in source
     assert '[draftSearch]' in source
-    assert "[ID, 'events', profile, domain, readFilter, searchText, null]" in source
+    assert "[ID, 'events', profile, domain, readFilter, searchText, trendingPeriod]" in source
     assert "[ID, 'events', profile, domain, readFilter, searchText, cursor]" in source
-    assert 'JSON.stringify([profile, domain, readFilter, searchText])' in source
-    assert '}, filterKey)' in source  # remount results, resetting both pagination states
+    assert 'JSON.stringify([profile, domain, readFilter, searchText, trendingPeriod])' in source
+    assert 'const profileKey = JSON.stringify([profile])' in source
+    assert '}, profileKey)' in source  # preserve toolbar DOM/focus within one profile
+    assert 'const sameResults = resultsScope === scope' in source
+    assert 'setResultsScope(scope)' in source
     for token in ('read: readFilter', 'q: searchText', "limit: '50'", 'cursor'):
         assert token in source
-    assert '[events.dataUpdatedAt]' in source
+    assert '[scope, events.dataUpdatedAt, events.isPlaceholderData]' in source
     assert 'queryClient.fetchQuery' in source
     assert 'const paginationGeneration = useRef(0)' in source
     assert 'const generation = paginationGeneration.current' in source
-    assert 'if (generation !== paginationGeneration.current) return' in source
+    assert 'if (!state.alive || scope !== activeScope.current || generation !== paginationGeneration.current) return' in source
 
 
 @contract
@@ -69,7 +72,7 @@ def test_settings_dialog_can_persistently_hide_keyword_tags(source):
     assert "ctx.storage.get('settings.locale', 'en')" in source
     assert "ctx.storage.set('settings.locale', next)" in source
     assert 'function normalizeLocale(value)' in source
-    assert "jsx(FeedResults, { ctx, profile, domain, readFilter, searchText, showTags, updateMutation, locale }" in source
+    assert re.search(r"jsx\(FeedResults, \{ ctx, profile, domain,[^\n]*\bshowTags, updateMutation, locale, (?:sidebarResizing, )?children:", source)
 
 
 @contract
@@ -109,7 +112,7 @@ def test_settings_typography_is_consistent(source):
 
 @contract
 def test_settings_scrolls_as_one_body_and_places_tag_switch_on_right(source):
-    dialog = source.split('jsx(Dialog, { open: settingsOpen', 1)[1].split('jsx(FeedResults,', 1)[0]
+    dialog = source.split('jsx(Dialog, { open: settingsOpen', 1)[1].split('function FeedStatusBar(', 1)[0]
     assert 'jsx(ScrollArea' not in dialog
     assert 'maxHeight: 360' not in dialog
     row = dialog.split("jsxs('label',", 1)[1].split("jsxs('div',", 1)[0]
@@ -157,44 +160,44 @@ def test_scoped_routes_and_mutations(source):
 def test_cards_tags_and_time_display(source):
     assert "border: `1px solid ${softAccent}`" not in source
     assert "borderRadius: 8" not in source
-    row = source.split("children: items.map(event => jsxs('li',", 1)[1].split('children: [', 1)[0]
+    row = source.split("}, event.id) : jsxs('li',", 1)[1].split('children: [', 1)[0]
     assert "borderBottom: '1px solid var(--ui-stroke-secondary)'" in row
     assert "color: event.read ? muted : 'var(--ui-text-primary)'" in source
     assert 'color: event.read ? muted : softAccent' in source
-    assert source.count('style: softButtonStyle') >= 5
+    assert source.count('style: softButtonStyle') >= 4  # Load-more action was removed.
     # 领域/阅读筛选沿用 Desktop 原生浅色选中态，非选中项透明。
     assert "const selected = domain === value" in source
     assert "color-mix(in srgb, var(--ui-accent) 85%, transparent)" not in source
     assert "const selectedControlStyle = { background: 'var(--ui-control-active-background)'" in source
     assert "selected ? selectedControlStyle : undefined" in source
     assert "readFilter === value ? selectedControlStyle : undefined" in source
-    # 左侧领域按钮与收藏夹固定为同一宽度；只显示正数未读数量并封顶 999。
+    # 左栏随字体自适应，领域/收藏夹等宽；计数移到阅读筛选。
     domain_button = source.split('function domainButton(value, label) {', 1)[1].split("return jsxs('div'", 1)[0]
-    assert "counts.data?.favorites_unread" in domain_button
-    assert "Math.min(count, 999)" in domain_button
-    assert "count > 0" in domain_button
-    assert domain_button.count("width: 120") == 1
+    assert "counts.data?.favorites_unread" in source
+    assert "Math.min(count, 999)" in source
+    assert "count > 0" in source
+    assert "width: '100%'" in domain_button
+    assert "width: sidebarWidth ?? 'calc-size(max-content, size * 1.5)'" in source
+    assert 'gap: 4' in domain_button
     assert "variant: 'ghost', size: 'sm'" in domain_button
     assert "jsx(Codicon, { name: DOMAIN_ICONS[value]" in domain_button
     assert "children: t(locale, label)" in domain_button
-    assert "children: countLabel" in domain_button
+    assert "countLabel" not in domain_button
+    assert "children: readingLabel(value, label)" in source
     for value, icon in (('all', 'home'), ('semiconductor', 'circuit-board'),
                         ('ai', 'hubot'), ('automotive', 'dashboard'),
                         ('music', 'music'), ('weibo', 'flame'), ('favorites', 'star-empty')):
         assert f"{value}: '{icon}'" in source
     # 阅读状态筛选按钮同样的选中高亮。
     assert "readFilter === value" in source
-    # 列表右侧为滚动条留位，避免与星标冲突。
-    assert 'paddingRight: 12' in source
-    # 卡片 li 本体不再用 borderBottom（预览面板头部的分隔线不受此限）。
-    card_line = next(line for line in source.splitlines() if "padding: '6px 10px'" in line)
-    assert 'borderBottom' not in card_line
-    # 卡片内部按钮不填充（默认 variant 是主题色填充，必须显式 ghost）。
+    # 滚动条留位放到行内，分隔线不缩短；上下留白4px。
+    assert "padding: '4px 12px 4px 10px'" in row
+    assert 'paddingRight: 12' not in source
+    # 列表内部按钮不填充（默认 variant 是主题色填充，必须显式 ghost）。
     assert source.count("variant: 'ghost'") >= 2
-    # 紧凑卡片：按钮无内边距，卡片 padding 收紧；星标在卡片边框外侧。
+    # 横线覆盖完整行（包括星标），按钮不引入额外内边距。
     assert "variant: 'ghost', size: 'inline'" in source
     assert "size: 'icon-xs'" in source
-    assert "padding: '6px 10px'" in source
     assert 'marginTop: 2' in source
     assert "useState('all')" in source
     assert 'domainButton(\'all\', t(locale, "全部"))' in source
@@ -217,9 +220,10 @@ def test_cards_tags_and_time_display(source):
 
 @contract
 def test_navigation_and_reading_toolbar_have_region_dividers(source):
-    assert "marginTop: 'auto', borderTop: '1px solid var(--ui-stroke-secondary)', paddingTop: 12" in source
+    assert "marginTop: 'auto', marginLeft: -8, marginRight: -8, borderTop: '1px solid var(--ui-stroke-secondary)'" in source
     toolbar = source.split('jsx(Input, { \'aria-label\': t(locale, "搜索资讯")', 1)[1].split("jsx(Dialog,", 1)[0]
-    assert "borderBottom: '1px solid var(--ui-stroke-secondary)', paddingBottom: 12" in toolbar
+    assert "borderBottom: '1px solid var(--ui-stroke-secondary)', padding: '0 20px 12px'" in toolbar
+    assert "padding: '20px 0 0'" in source
 
 
 @contract
@@ -244,14 +248,46 @@ def test_layout_and_states(source):
     assert 'events.isLoading' in source
     assert 'pages.flatMap(page => page.items)' in source
     assert 'setPages(previous => [...previous, page])' in source
-    assert 'setCursor(page.next_cursor)' in source
+    assert 'setCursor(nextCursor)' in source
     assert 'setPages([])' in source and 'setCursor(null)' in source
-    assert 'disabled: events.isFetching || loadingMore' in source
+    assert 'state.request' in source and 'eventsRef.current.isFetching' in source
+    assert 'onScrollCapture: onListScroll' in source
+    assert 'new IntersectionObserver' in source
+    assert "onClick: () => loadMore(true)" in source
     assert 'fontWeight: event.read ? 400 : 600' in source
     assert 'var(--ui-border)' not in source
     assert 'var(--ui-stroke-secondary)' in source
     assert "'aria-live': 'polite'" in source
     assert "${event.headline}" in source
+
+
+@contract
+def test_browser_preview_uses_only_public_rest_and_local_canvas(source):
+    assert 'browser.embed' not in source and 'ctx.browser' not in source
+    assert "ctx.rest('/browser/status')" in source
+    assert "ctx.rest('/browser/sessions'" in source
+    for action in ('navigate', 'resize', 'paint', 'reload'):
+        assert f"'{action}'" in source
+    assert 'life.guard.dispose()' in source
+    assert 'lifeRef.current !== life' in source
+    assert 'gatewayActivationEpoch' in source
+    surface = source.split('function StreamSurface(', 1)[1].split('function PreviewPane(', 1)[0]
+    assert 'useQuery' not in surface and 'queryClient' not in surface
+    assert '/frame?after_seq=' in surface and '&wait_ms=' in surface
+    assert "className: 'intelligence-feed-stream-browser'" in source
+    assert '受限预览' in source and 'Limited preview' in source
+    assert '刷新预览' in source and 'Refresh preview' in source
+    assert '!parsed.username && !parsed.password' in source
+    for forbidden in ('window.hermesDesktop', 'electron', 'MutationObserver', 'document.querySelector', 'contentDocument', 'contentWindow'):
+        assert forbidden not in source
+    # Only the plugin-owned canvas's window is used for outside mouse release;
+    # this does not inspect a remote frame or inject scripts into guest content.
+    assert source.count('ownerDocument') == 1
+    assert 'canvas.ownerDocument.defaultView' in source
+    stream_slot = source.split('children: useStream ? jsx(StreamSurface,', 1)[1].split('jsx(SandboxedFrame', 1)[0]
+    assert 'transform' not in stream_slot
+    frame = source.split('jsx(SandboxedFrame,', 1)[1]
+    assert 'sandbox:' not in frame
 
 
 if __name__ == '__main__':

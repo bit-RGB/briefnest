@@ -196,5 +196,29 @@
     },
     "max_items": 50,
     "enabled": true
+  },
+  {
+    "id": "github-trending-daily",
+    "domain": "github-trending",
+    "name": "GitHub Trending (Daily)",
+    "adapter": "github-trending",
+    "url": "https://github.com/trending?since=daily",
+    "enabled": true
+  },
+  {
+    "id": "github-trending-weekly",
+    "domain": "github-trending",
+    "name": "GitHub Trending (Weekly)",
+    "adapter": "github-trending",
+    "url": "https://github.com/trending?since=weekly",
+    "enabled": true
+  },
+  {
+    "id": "github-trending-monthly",
+    "domain": "github-trending",
+    "name": "GitHub Trending (Monthly)",
+    "adapter": "github-trending",
+    "url": "https://github.com/trending?since=monthly",
+    "enabled": true
   }
 ]

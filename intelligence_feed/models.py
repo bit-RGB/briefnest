@@ -11,6 +11,7 @@ class SourceItem:
     title: str
     summary: str
     published_at: str | None
+    trending: tuple[str, int, int] | None = None  # language, total stars, period stars
 
 
 @dataclass(frozen=True)

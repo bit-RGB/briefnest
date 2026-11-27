@@ -7,5 +7,7 @@ test('preview motion and isolated content sizing remain intact', () => {
   assert.match(source, /grid-template-columns 180ms ease-out/)
   assert.match(source, /prefers-reduced-motion: reduce/)
   assert.match(source, /position: 'relative', flex: 1, minWidth: 0, minHeight: 0/)
-  assert.match(source, /position: 'absolute', inset: 0, width: '100%', height: '100%'/)
+  assert.ok(source.includes('width: `${10000 / pageScale}%`'))
+  assert.ok(source.includes('height: `${10000 / pageScale}%`'))
+  assert.match(source, /transformOrigin: 'top left'/)
 })

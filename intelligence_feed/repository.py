@@ -293,6 +293,7 @@ def list_events(
         where.append("us.favorite_at IS NOT NULL")
     elif domain == "all":
         where.append("s.enabled = 1")
+        where.append("e.domain <> 'github-trending'")
         where.append(f"{_EFFECTIVE} >= datetime('now', '-30 days')")
     else:
         where.append("e.domain = ?")
@@ -440,7 +441,7 @@ def counts(conn: sqlite3.Connection, profile: str) -> dict:
             JOIN articles a ON a.id = ea.article_id
             JOIN sources s ON s.id = a.source_id AND s.enabled = 1
             LEFT JOIN user_state us ON us.event_id = e.id AND us.profile = ?
-            WHERE {_EFFECTIVE} >= datetime('now', '-30 days')
+            WHERE e.domain <> 'github-trending' AND {_EFFECTIVE} >= datetime('now', '-30 days')
             """,
             (profile,),
         ).fetchone()

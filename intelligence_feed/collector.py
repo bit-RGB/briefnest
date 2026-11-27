@@ -6,6 +6,7 @@ from dataclasses import asdict, dataclass
 
 from .credentials import configured_credentials, sanitize as _sanitize
 from .db import connect
+from .github_trending import DOMAIN as GITHUB_TRENDING, replace_snapshot
 from .repository import _now_beijing, rebuild_event_search, upsert_item
 from .sources import fetch_source, load_sources, sync_sources
 
@@ -98,7 +99,9 @@ def run_update(*, source_loader=load_sources, source_fetcher=fetch_source,
                 with conn:
                     # Repository helpers must not commit any portion of this source early.
                     conn.execute("BEGIN")
-                    if result.status == "success":
+                    if result.status == "success" and source["adapter"] == GITHUB_TRENDING:
+                        source_inserted = replace_snapshot(conn, source["id"], result.items)
+                    elif result.status == "success":
                         for item in result.items:
                             event_id, created = upsert_item(conn, item)
                             source_inserted += int(created)

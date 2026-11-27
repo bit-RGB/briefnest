@@ -52,9 +52,15 @@ def events():
 def test_unprefixed_routes():
     assert {(next(iter(r.methods)), r.path) for r in api.router.routes} == {
         ("GET", "/events"), ("GET", "/counts"), ("GET", "/runs/latest"),
+        ("GET", "/github-trending"),
         ("GET", "/sources"), ("PATCH", "/sources/{id}"),
         ("PATCH", "/events/{id}/read"), ("PATCH", "/events/{id}/favorite"),
         ("POST", "/updates"),
+        ("GET", "/browser/status"), ("POST", "/browser/sessions"),
+        ("GET", "/browser/sessions/{id}/frame"),
+        ("POST", "/browser/sessions/{id}/action"),
+        ("DELETE", "/browser/sessions/{id}"),
+        ("POST", "/browser/sessions/{id}/clear"),
     }
 
 

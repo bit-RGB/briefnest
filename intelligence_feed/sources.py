@@ -8,6 +8,7 @@ from urllib.parse import quote, urlsplit, urlunsplit
 
 from .credentials import credential_variants, sanitize, source_key
 from .fetch import fetch_url
+from .github_trending import parse_github_trending
 from .models import SourceFetchResult
 from .parsers import parse_feed, parse_html_list, parse_lastfm, parse_weibo_hot
 from .repository import _maybe_transaction
@@ -23,6 +24,7 @@ _ADAPTERS = {
     "html-list": parse_html_list,
     "lastfm": parse_lastfm,
     "weibo-hot": parse_weibo_hot,
+    "github-trending": parse_github_trending,
 }
 
 
